@@ -1,5 +1,6 @@
 import p5 from "p5";
-import { TERRAIN, findPath, getIndex } from "./pathfinding.js";
+import { TERRAIN, findPath, getIndex, MOVEMENT_COSTS } from "./pathfinding.js";
+import { HEATMAP_COLORS } from "./heatmap-config.js";
 
 export function createMapSketch(containerEl, { onReady } = {}) {
   const targetEl = containerEl || document.getElementById("map-frame");
@@ -35,6 +36,8 @@ export function createMapSketch(containerEl, { onReady } = {}) {
     let terrainTypeMap = [];
     let heightMap = [];
     let waterMask = null;
+    let heatmapOverlays = {};
+    let heatmapFilters = new Set();
     let startCell = null;
     let endCell = null;
     let currentPath = [];
@@ -44,13 +47,6 @@ export function createMapSketch(containerEl, { onReady } = {}) {
     const END_COLOR = { r: 251, g: 113, b: 133 };
     const MAX_PATH_POINTS = 900;
     const PATH_SMOOTH_ITERATIONS = 2;
-    const MOVEMENT_COSTS = {
-      [TERRAIN.SAND]: 2,
-      [TERRAIN.GRASS]: 1,
-      [TERRAIN.TREES]: 3,
-      [TERRAIN.MOUNTAIN]: 4,
-      [TERRAIN.SNOW]: 5,
-    };
     let controlListenersAttached = false;
     let noiseSeedValue = Math.floor(Math.random() * 1_000_000_000);
     const BIOME_META = [
@@ -138,6 +134,7 @@ export function createMapSketch(containerEl, { onReady } = {}) {
       terrainTypeMap = [];
       heightMap = [];
       waterMask = null;
+      heatmapOverlays = {};
       resetSelections(false);
       randomizeNoiseSeed();
       p.redraw();
@@ -150,6 +147,7 @@ export function createMapSketch(containerEl, { onReady } = {}) {
 
       p.image(terrainImage, 0, 0);
       drawWaterOverlay();
+      drawHeatmapOverlay();
       drawSelectionsAndPath();
 
       if (!mapReadyEmitted) {
@@ -338,6 +336,7 @@ export function createMapSketch(containerEl, { onReady } = {}) {
       terrainImage.updatePixels();
       applyLightingAndContours();
       buildWaterMask();
+      buildHeatmapOverlays();
       emitBiomeStats(counts, p.width * p.height);
     }
 
@@ -414,6 +413,43 @@ export function createMapSketch(containerEl, { onReady } = {}) {
       waterMask.updatePixels();
     }
 
+    function buildHeatmapOverlays() {
+      const overlays = {};
+      if (!terrainTypeMap.length) {
+        heatmapOverlays = overlays;
+        return;
+      }
+
+      const totalCells = terrainTypeMap.length;
+
+      for (const meta of BIOME_META) {
+        if (meta.id === TERRAIN.WATER) {
+          continue;
+        }
+        const overlay = p.createImage(p.width, p.height);
+        overlay.loadPixels();
+        const heatColor = p.color(
+          HEATMAP_COLORS[meta.id] ?? meta.to ?? "#ffffff"
+        );
+        const alpha = 255;
+
+        for (let idx = 0; idx < totalCells; idx++) {
+          if (terrainTypeMap[idx] !== meta.id) {
+            continue;
+          }
+          const pix = idx * 4;
+          overlay.pixels[pix] = p.red(heatColor);
+          overlay.pixels[pix + 1] = p.green(heatColor);
+          overlay.pixels[pix + 2] = p.blue(heatColor);
+          overlay.pixels[pix + 3] = alpha;
+        }
+        overlay.updatePixels();
+        overlays[meta.id] = overlay;
+      }
+
+      heatmapOverlays = overlays;
+    }
+
     function drawWaterOverlay() {
       if (!waterMask) {
         return;
@@ -454,6 +490,22 @@ export function createMapSketch(containerEl, { onReady } = {}) {
       );
     }
 
+    function drawHeatmapOverlay() {
+      if (!heatmapFilters.size || !Object.keys(heatmapOverlays).length) {
+        return;
+      }
+      p.push();
+      p.blendMode(p.BLEND);
+      for (const biomeId of heatmapFilters) {
+        const overlay = heatmapOverlays[biomeId];
+        if (overlay) {
+          p.image(overlay, 0, 0);
+        }
+      }
+      p.pop();
+    }
+
+
     function drawSelectionsAndPath() {
       // Draw the path first so markers/pins sit on top.
       if (currentPath.length) {
@@ -490,13 +542,12 @@ export function createMapSketch(containerEl, { onReady } = {}) {
     }
 
     function drawPinIcon(cell, strokeCol) {
-      // Approximate lucide-react "MapPin" icon drawn in p5 for the destination.
       p.push();
-      // Place the pin tip at the center of the destination cell so the icon sits atop the cell.
+
       p.translate(cell.x + 0.5, cell.y + 0.5);
       const scaleFactor = 0.8;
       p.scale(scaleFactor);
-      // Shift drawing so the icon's tip (originally at 12,21) aligns with the origin.
+
       p.translate(-12, -21);
       p.stroke(strokeCol);
       p.fill(p.red(strokeCol), p.green(strokeCol), p.blue(strokeCol), 60);
@@ -548,7 +599,6 @@ export function createMapSketch(containerEl, { onReady } = {}) {
       p.strokeCap(p.ROUND);
       p.strokeJoin(p.ROUND);
 
-      // Subtle halo for visibility
       p.stroke(255, 255, 255, 30);
       p.strokeWeight(6);
       for (let i = 0; i < pts.length - 1; i++) {
@@ -557,7 +607,6 @@ export function createMapSketch(containerEl, { onReady } = {}) {
         p.line(a.x, a.y, b.x, b.y);
       }
 
-      // Gradient stroke along the path
       p.strokeWeight(3);
       for (let i = 0; i < pts.length - 1; i++) {
         const a = pts[i];
@@ -662,6 +711,7 @@ export function createMapSketch(containerEl, { onReady } = {}) {
         terrainTypeMap = [];
         heightMap = [];
         waterMask = null;
+        heatmapOverlays = {};
         resetSelections(false);
         randomizeNoiseSeed();
         mapReadyEmitted = false;
@@ -669,16 +719,30 @@ export function createMapSketch(containerEl, { onReady } = {}) {
       }, 0);
     }
 
+    function handleHeatmapFilters(evt) {
+      const filters = Array.isArray(evt?.detail?.filters)
+        ? evt.detail.filters
+        : [];
+      heatmapFilters = new Set(
+        filters
+          .map((value) => Number(value))
+          .filter((value) => !Number.isNaN(value))
+      );
+      p.redraw();
+    }
+
     function attachControlListeners() {
       if (controlListenersAttached) {
         return;
       }
       window.addEventListener("reset-path", handleResetEvent);
+      window.addEventListener("heatmap-filters", handleHeatmapFilters);
       window.addEventListener("regenerate-map", handleRegenerateMap);
       controlListenersAttached = true;
       const originalRemove = p.remove.bind(p);
       p.remove = () => {
         window.removeEventListener("reset-path", handleResetEvent);
+        window.removeEventListener("heatmap-filters", handleHeatmapFilters);
         window.removeEventListener("regenerate-map", handleRegenerateMap);
         controlListenersAttached = false;
         originalRemove();
@@ -729,13 +793,8 @@ export function createMapSketch(containerEl, { onReady } = {}) {
     }
 
     function smoothPathPoints(points, samplesPerSegment = 10, tension = 0.5) {
-      // Catmull–Rom spline sampling.
-      // samplesPerSegment: higher = smoother, slower
-      // tension: 0.5 is the classic Catmull–Rom; lower is looser, higher is tighter
-
       if (!points || points.length < 2) return points || [];
 
-      // Duplicate endpoints so the spline starts/ends at the first/last point
       const pts = [points[0], ...points, points[points.length - 1]];
 
       const out = [];
@@ -745,7 +804,6 @@ export function createMapSketch(containerEl, { onReady } = {}) {
         const p2 = pts[i + 2];
         const p3 = pts[i + 3];
 
-        // Add the first point of the segment once
         if (i === 0) out.push({ x: p1.x, y: p1.y });
 
         for (let j = 1; j <= samplesPerSegment; j++) {
@@ -758,8 +816,6 @@ export function createMapSketch(containerEl, { onReady } = {}) {
     }
 
     function catmullRomPoint(p0, p1, p2, p3, t, tension = 0.5) {
-      // Standard Catmull–Rom basis with configurable tension.
-      // Equivalent to converting to tangents scaled by tension.
       const t2 = t * t;
       const t3 = t2 * t;
 

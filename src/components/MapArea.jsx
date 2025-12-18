@@ -4,6 +4,7 @@ import MapLegend from "./MapLegend.jsx";
 import { useEffect, useRef, useState } from "react";
 
 import { Eye, EyeOff } from "lucide-react";
+import { HEATMAP_FILTERS } from "../heatmap-config.js";
 
 export default function MapArea() {
   const [showTabs, setShowTabs] = useState(true);
@@ -11,6 +12,7 @@ export default function MapArea() {
   const [biomeStats, setBiomeStats] = useState([]);
   const [popup, setPopup] = useState(null);
   const [pathDistance, setPathDistance] = useState(null);
+  const [heatmapFilters, setHeatmapFilters] = useState([]);
   const popupTimerRef = useRef(null);
 
   useEffect(() => {
@@ -63,9 +65,29 @@ export default function MapArea() {
     return () => window.removeEventListener("path-summary", handler);
   }, []);
 
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+    window.dispatchEvent(
+      new CustomEvent("heatmap-filters", {
+        detail: { filters: heatmapFilters },
+      })
+    );
+  }, [heatmapFilters]);
+
   const handleReset = () => {
     window.dispatchEvent(new Event("reset-path"));
     setHasDestination(false);
+  };
+
+  const toggleHeatmapFilter = (terrainId) => {
+    setHeatmapFilters((prev) => {
+      if (prev.includes(terrainId)) {
+        return prev.filter((value) => value !== terrainId);
+      }
+      return [...prev, terrainId];
+    });
   };
 
   return (
@@ -180,6 +202,52 @@ export default function MapArea() {
                 </div>
               )}
             </div>
+          </div>
+          <div className="pointer-events-auto rounded-2xl border border-white/10 bg-[rgba(7,13,26,0.75)] backdrop-blur-lg shadow-lg p-4 space-y-3">
+            <div className="flex items-start justify-between gap-2">
+              <p className="m-0 text-[11px] uppercase tracking-[0.12em] text-slate-300">
+                Biome heatmap
+              </p>
+              <button
+                type="button"
+                onClick={() => setHeatmapFilters([])}
+                disabled={!heatmapFilters.length}
+                className={`text-[11px] font-semibold tracking-[0.24em] ${
+                  heatmapFilters.length
+                    ? "text-slate-200 hover:text-white"
+                    : "text-white/40 cursor-not-allowed"
+                }`}
+              >
+                Clear
+              </button>
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              {HEATMAP_FILTERS.map((filter) => {
+                const isActive = heatmapFilters.includes(filter.id);
+                return (
+                  <button
+                    key={`heatmap-${filter.id}`}
+                    type="button"
+                    onClick={() => toggleHeatmapFilter(filter.id)}
+                    aria-pressed={isActive}
+                    className={`flex flex-col items-center justify-center gap-1 rounded-2xl border px-3 py-2 text-[11px] font-semibold transition ${
+                      isActive
+                        ? "border-white/70 bg-white text-slate-900 shadow-lg"
+                        : "border-white/15 bg-white/5 text-slate-100 hover:border-white/40"
+                    }`}
+                  >
+                    <span
+                      className="w-8 h-2 rounded-full"
+                      style={{ background: filter.color }}
+                    ></span>
+                    {filter.label}
+                  </button>
+                );
+              })}
+            </div>
+            <p className="w-56 text-[11px] text-slate-400">
+              Tap to highlight movement costs for the selected biomes.
+            </p>
           </div>
         </div>
       )}

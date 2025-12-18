@@ -14,6 +14,7 @@ const movementCosts = {
   [TERRAIN.MOUNTAIN]: 4,
   [TERRAIN.SNOW]: 5,
 };
+export const MOVEMENT_COSTS = movementCosts;
 
 const directions = [
   { dx: 1, dy: 0 },
