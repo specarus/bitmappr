@@ -20,7 +20,7 @@ export default function TerrainCanvas() {
     <div
       id="map-frame"
       ref={frameRef}
-      className="w-full h-full rounded-2xl overflow-hidden"
+      className="w-full h-full rounded-2xl overflow-hidden border-4 border-emerald-400"
     ></div>
   );
 }
