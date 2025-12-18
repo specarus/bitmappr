@@ -42,15 +42,27 @@ export function createMapSketch(containerEl, { onReady } = {}) {
     let startCell = null;
     let endCell = null;
     let currentPath = [];
+    let smoothedPathPoints = [];
     const PATH_ANIMATION_DURATION = 1500;
     let pathAnimationActive = false;
     let pathAnimationStart = 0;
-
     const START_COLOR = { r: 34, g: 211, b: 238 };
     const MID_PATH_COLOR = { r: 167, g: 139, b: 250 };
     const END_COLOR = { r: 251, g: 113, b: 133 };
     const MAX_PATH_POINTS = 900;
-    const PATH_SMOOTH_ITERATIONS = 2;
+    const PATH_SMOOTH_SAMPLES = 10;
+    const PATH_SMOOTH_TENSION = 0.5;
+    const WATER_ANIMATION_SPEED = 0.0011;
+    const WATER_WAVE_LAYERS = [
+      { xScale: 0.032, yScale: 0.018, speed: 0.8, amp: 1.1 },
+      { xScale: 0.065, yScale: 0.043, speed: 0.55, amp: 0.85 },
+      { xScale: 0.018, yScale: 0.028, speed: 0.25, amp: 0.3 },
+    ];
+    const WATER_SHIMMER_SCALE = 0.009;
+    const WATER_BASE_COLOR = { r: 24, g: 150, b: 238 };
+    const WATER_HIGHLIGHT_SPEED = 1.35;
+    const WATER_CONTRAST_BOOST = 1.4;
+    const WATER_SHADOW_OFFSET = 0.28;
     let controlListenersAttached = false;
     let noiseSeedValue = Math.floor(Math.random() * 1_000_000_000);
     const LIGHT_DIRECTION = normalizeVec3(0.45, 0.75, 1.1);
@@ -206,17 +218,19 @@ export function createMapSketch(containerEl, { onReady } = {}) {
         if (!nextPath.length) {
           endCell = null;
           currentPath = [];
+          smoothedPathPoints = [];
           emitTerrainPopup(
             "Destination unreachable without leaving the map. Try a closer point."
           );
           emitPathState(false);
           emitPathSummary({ hasPath: false });
         } else {
-        endCell = clickedCell;
-        currentPath = nextPath;
-        startPathAnimation();
-        emitPathState(true);
-        emitPathSummary(computePathSummary(currentPath));
+          endCell = clickedCell;
+          currentPath = nextPath;
+          smoothedPathPoints = prepareSmoothedPath(nextPath);
+          startPathAnimation();
+          emitPathState(true);
+          emitPathSummary(computePathSummary(currentPath));
         }
       }
 
@@ -452,28 +466,8 @@ export function createMapSketch(containerEl, { onReady } = {}) {
       if (!waterMask) {
         return;
       }
-      const t = p.millis() * 0.002;
-      const overlay = p.createImage(p.width, p.height);
-      overlay.loadPixels();
-      for (let y = 0; y < p.height; y++) {
-        const waveY = Math.sin(y * 0.075 + t * 1.6);
-        for (let x = 0; x < p.width; x++) {
-          const waveX = Math.sin(x * 0.095 + t * 2.4);
-          const cross = Math.sin((x + y) * 0.02 + t * 1.2);
-          const wave = waveX + waveY * 0.7 + cross * 0.4;
-          const sparkle = clamp01(0.5 + 0.5 * Math.sin(x * 0.14 + t * 3.3));
-          const pix = getIndex(x, y, p.width) * 4;
-          overlay.pixels[pix] = 26 + 18 * sparkle;
-          overlay.pixels[pix + 1] = 170 + 30 * sparkle;
-          overlay.pixels[pix + 2] = 246 + 8 * sparkle;
-          overlay.pixels[pix + 3] = Math.min(
-            160,
-            clamp01(0.5 + 0.35 * wave) * 120 + 16
-          );
-        }
-      }
-      overlay.updatePixels();
-      overlay.mask(waterMask);
+      const time = p.millis() * WATER_ANIMATION_SPEED;
+      const overlay = buildWaterOverlay(time);
       p.blend(
         overlay,
         0,
@@ -486,6 +480,92 @@ export function createMapSketch(containerEl, { onReady } = {}) {
         p.height,
         p.SCREEN
       );
+    }
+
+    function buildWaterOverlay(time) {
+      const overlay = p.createImage(p.width, p.height);
+      overlay.loadPixels();
+      for (let y = 0; y < p.height; y++) {
+        for (let x = 0; x < p.width; x++) {
+          let waveSum = 0;
+          for (const layer of WATER_WAVE_LAYERS) {
+            const waveX = Math.sin(x * layer.xScale + time * layer.speed);
+            const waveY = Math.sin(
+              y * layer.yScale - time * layer.speed * 0.65
+            );
+            waveSum += layer.amp * (waveX + waveY) * 0.5;
+          }
+          const waveStrength = clamp01(
+            (0.5 + 0.18 * waveSum) * WATER_CONTRAST_BOOST
+          );
+          const shimmer = clamp01(
+            p.noise(
+              x * WATER_SHIMMER_SCALE + time * 0.35,
+              y * WATER_SHIMMER_SCALE - time * 0.24
+            )
+          );
+          const pulse =
+            Math.sin((x + y) * 0.035 + time * WATER_HIGHLIGHT_SPEED) * 0.35;
+          const highlight = clamp01(0.45 + shimmer * 0.55 + pulse * 0.4);
+          const contrastGlow = clamp01(
+            highlight * 0.75 + waveStrength * 0.55 + pulse * 0.45
+          );
+          const shadowDepth = clamp01(
+            WATER_SHADOW_OFFSET -
+              shimmer * 0.35 -
+              waveStrength * 0.25 -
+              pulse * 0.2
+          );
+          const saturationBoost = clamp01(
+            highlight * 0.45 +
+              shimmer * 0.35 +
+              waveStrength * 0.2 +
+              pulse * 0.25
+          );
+          const r = Math.min(
+            255,
+            Math.max(
+              0,
+              WATER_BASE_COLOR.r +
+                contrastGlow * 52 +
+                saturationBoost * 24 -
+                shadowDepth * 52
+            )
+          );
+          const g = Math.min(
+            255,
+            Math.max(
+              0,
+              WATER_BASE_COLOR.g +
+                contrastGlow * 65 +
+                saturationBoost * 30 -
+                shadowDepth * 60
+            )
+          );
+          const b = Math.min(
+            255,
+            Math.max(
+              0,
+              WATER_BASE_COLOR.b +
+                contrastGlow * 38 +
+                saturationBoost * 18 -
+                shadowDepth * 48
+            )
+          );
+          const alphaFactor = clamp01(
+            0.28 + contrastGlow * 0.48 + highlight * 0.37 - shadowDepth * 0.18
+          );
+          const alpha = Math.min(255, alphaFactor * 240 + 45);
+          const pix = getIndex(x, y, p.width) * 4;
+          overlay.pixels[pix] = Math.round(r);
+          overlay.pixels[pix + 1] = Math.round(g);
+          overlay.pixels[pix + 2] = Math.round(b);
+          overlay.pixels[pix + 3] = Math.min(255, Math.round(alpha));
+        }
+      }
+      overlay.updatePixels();
+      overlay.mask(waterMask);
+      return overlay;
     }
 
     function drawHeatmapOverlay() {
@@ -503,11 +583,9 @@ export function createMapSketch(containerEl, { onReady } = {}) {
       p.pop();
     }
 
-
     function drawSelectionsAndPath(pathProgress = 1) {
-      // Draw the path first so markers/pins sit on top.
-      if (currentPath.length) {
-        drawSmoothPath(currentPath, pathProgress);
+      if (smoothedPathPoints.length) {
+        drawSmoothPath(smoothedPathPoints, pathProgress);
       }
       if (startCell) {
         drawMarker(
@@ -521,12 +599,12 @@ export function createMapSketch(containerEl, { onReady } = {}) {
     }
 
     function startPathAnimation() {
-      pathAnimationActive = Boolean(currentPath.length);
+      pathAnimationActive = Boolean(smoothedPathPoints.length);
       pathAnimationStart = p.millis();
     }
 
     function getPathAnimationProgress() {
-      if (!pathAnimationActive || !currentPath.length) {
+      if (!pathAnimationActive || !smoothedPathPoints.length) {
         return 1;
       }
       const elapsed = p.millis() - pathAnimationStart;
@@ -582,15 +660,8 @@ export function createMapSketch(containerEl, { onReady } = {}) {
       p.pop();
     }
 
-    function drawSmoothPath(path, progress = 1) {
-      const basePts = downsamplePoints(
-        path.map((pt) => ({ x: pt.x + 0.5, y: pt.y + 0.5 })),
-        MAX_PATH_POINTS
-      );
-
-      const pts = smoothPathPoints(basePts, 10, 0.5);
-
-      if (pts.length < 2) {
+    function drawSmoothPath(pts, progress = 1) {
+      if (!pts || pts.length < 2) {
         return;
       }
 
@@ -668,6 +739,21 @@ export function createMapSketch(containerEl, { onReady } = {}) {
       p.pop();
     }
 
+    function prepareSmoothedPath(path) {
+      if (!path || path.length < 2) {
+        return [];
+      }
+      const basePts = downsamplePoints(
+        path.map((pt) => ({ x: pt.x + 0.5, y: pt.y + 0.5 })),
+        MAX_PATH_POINTS
+      );
+      return smoothPathPoints(
+        basePts,
+        PATH_SMOOTH_SAMPLES,
+        PATH_SMOOTH_TENSION
+      );
+    }
+
     function emitPathState(hasDestination) {
       window.dispatchEvent(
         new CustomEvent("path-state", {
@@ -739,6 +825,7 @@ export function createMapSketch(containerEl, { onReady } = {}) {
       startCell = null;
       endCell = null;
       currentPath = [];
+      smoothedPathPoints = [];
       pathAnimationActive = false;
       pathAnimationStart = 0;
       emitPathState(false);

@@ -103,43 +103,40 @@ export default function MapArea() {
       </div>
 
       <div className="absolute z-10 bottom-7 left-7">
-        <button
-          type="button"
-          className="flex items-center gap-4 px-4 py-2 rounded-full backdrop-blur-lg bg-[rgba(7,13,26,0.65)] border border-red-400/50 text-sm font-semibold text-white shadow-sm hover:bg-[rgba(7,13,26,0.9)] transition"
-        >
+        <div className="flex items-center gap-4 px-4 py-2 rounded-full backdrop-blur-lg bg-[rgba(7,13,26,0.65)] border border-red-400/50 text-sm font-semibold text-white shadow-sm">
           <span aria-hidden="true" className="live-dot"></span>
           Live
-        </button>
+        </div>
       </div>
 
-        <div className="absolute z-10 bottom-7 right-7 flex flex-col items-end gap-2">
-          <button
-            onClick={() => setShowTabs(!showTabs)}
-            className="p-2 rounded-full w-fit backdrop-blur-lg bg-[rgba(7,13,26,0.65)] shadow-md border border-white/10"
-          >
-            {showTabs ? (
-              <Eye className="w-5 h-5 text-white" />
-            ) : (
-              <EyeOff className="w-5 h-5 text-white" />
-            )}
-          </button>
+      <div className="absolute z-10 bottom-7 right-7 flex flex-col items-end gap-2">
+        <button
+          onClick={() => setShowTabs(!showTabs)}
+          className="p-2 rounded-full w-fit backdrop-blur-lg bg-[rgba(7,13,26,0.65)] shadow-md border border-white/10"
+        >
+          {showTabs ? (
+            <Eye className="w-5 h-5 text-white" />
+          ) : (
+            <EyeOff className="w-5 h-5 text-white" />
+          )}
+        </button>
 
-          <button
-            onClick={() => setCloudsEnabled((prev) => !prev)}
-            aria-pressed={cloudsEnabled}
-            title="Toggle clouds overlay"
-            className="p-2 rounded-full w-fit backdrop-blur-lg bg-[rgba(7,13,26,0.65)] shadow-md border border-white/10"
-          >
-            {cloudsEnabled ? (
-              <Cloud className="w-5 h-5 text-white" />
-            ) : (
-              <CloudOff className="w-5 h-5 text-white" />
-            )}
-          </button>
+        <button
+          onClick={() => setCloudsEnabled((prev) => !prev)}
+          aria-pressed={cloudsEnabled}
+          title="Toggle clouds overlay"
+          className="p-2 rounded-full w-fit backdrop-blur-lg bg-[rgba(7,13,26,0.65)] shadow-md border border-white/10"
+        >
+          {cloudsEnabled ? (
+            <Cloud className="w-5 h-5 text-white" />
+          ) : (
+            <CloudOff className="w-5 h-5 text-white" />
+          )}
+        </button>
 
-          {hasDestination && (
-            <button
-              onClick={handleReset}
+        {hasDestination && (
+          <button
+            onClick={handleReset}
             className="px-4 py-2 rounded-full backdrop-blur-lg bg-[rgba(7,13,26,0.8)] border border-white/15 text-sm font-semibold text-white shadow-lg hover:bg-[rgba(7,13,26,0.9)] transition"
           >
             Reset
