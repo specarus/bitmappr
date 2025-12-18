@@ -42,7 +42,7 @@ export function createTerrainSketch(containerEl, { onReady } = {}) {
       }
       resizeMapCanvas();
       mapCanvas.addClass(
-        "w-full h-full block rounded-2xl saturate-[1.04] contrast-[1.02] relative left-0 top-0"
+        "w-full h-full block saturate-[1.04] contrast-[1.02] relative left-0 top-0"
       );
       if (mapCanvas.drawingContext) {
         mapCanvas.drawingContext.imageSmoothingEnabled = true;
