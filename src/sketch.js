@@ -35,9 +35,6 @@ export function createMapSketch(containerEl, { onReady } = {}) {
     let terrainTypeMap = [];
     let heightMap = [];
     let waterMask = null;
-    let cloudTexture = null;
-    let cloudOffset = { x: 0, y: 0 };
-    let cloudWind = { x: 0.06, y: 0.02 };
     let startCell = null;
     let endCell = null;
     let currentPath = [];
@@ -141,8 +138,6 @@ export function createMapSketch(containerEl, { onReady } = {}) {
       terrainTypeMap = [];
       heightMap = [];
       waterMask = null;
-      cloudTexture = null;
-      cloudOffset = { x: 0, y: 0 };
       resetSelections(false);
       randomizeNoiseSeed();
       p.redraw();
@@ -155,7 +150,6 @@ export function createMapSketch(containerEl, { onReady } = {}) {
 
       p.image(terrainImage, 0, 0);
       drawWaterOverlay();
-      drawClouds();
       drawSelectionsAndPath();
 
       if (!mapReadyEmitted) {
@@ -344,8 +338,6 @@ export function createMapSketch(containerEl, { onReady } = {}) {
       terrainImage.updatePixels();
       applyLightingAndContours();
       buildWaterMask();
-      cloudTexture = null;
-      cloudOffset = { x: 0, y: 0 };
       emitBiomeStats(counts, p.width * p.height);
     }
 
@@ -394,7 +386,8 @@ export function createMapSketch(containerEl, { onReady } = {}) {
       const sy = Math.max(0, Math.min(p.height - 1, y));
       const clampX = (val) => Math.max(0, Math.min(p.width - 1, val));
       const clampY = (val) => Math.max(0, Math.min(p.height - 1, val));
-      const getHeight = (ix, iy) => heightMap[getIndex(clampX(ix), clampY(iy), p.width)];
+      const getHeight = (ix, iy) =>
+        heightMap[getIndex(clampX(ix), clampY(iy), p.width)];
       const hL = getHeight(sx - 1, sy);
       const hR = getHeight(sx + 1, sy);
       const hU = getHeight(sx, sy - 1);
@@ -439,7 +432,10 @@ export function createMapSketch(containerEl, { onReady } = {}) {
           overlay.pixels[pix] = 26 + 18 * sparkle;
           overlay.pixels[pix + 1] = 170 + 30 * sparkle;
           overlay.pixels[pix + 2] = 246 + 8 * sparkle;
-          overlay.pixels[pix + 3] = Math.min(160, clamp01(0.5 + 0.35 * wave) * 120 + 16);
+          overlay.pixels[pix + 3] = Math.min(
+            160,
+            clamp01(0.5 + 0.35 * wave) * 120 + 16
+          );
         }
       }
       overlay.updatePixels();
@@ -456,73 +452,6 @@ export function createMapSketch(containerEl, { onReady } = {}) {
         p.height,
         p.SCREEN
       );
-    }
-
-    function drawClouds() {
-      if (!cloudTexture) {
-        buildCloudTexture();
-      }
-      if (!cloudTexture) {
-        return;
-      }
-      const dt = Math.max(0.016, p.deltaTime || 16) / 16.666;
-      const texW = cloudTexture.width;
-      const texH = cloudTexture.height;
-      cloudOffset.x = (cloudOffset.x + cloudWind.x * dt) % texW;
-      cloudOffset.y = (cloudOffset.y + cloudWind.y * dt) % texH;
-
-      p.push();
-      p.tint(255, 190);
-      const ox = cloudOffset.x;
-      const oy = cloudOffset.y;
-      p.image(cloudTexture, -ox, -oy);
-      p.image(cloudTexture, -ox + texW, -oy);
-      p.image(cloudTexture, -ox, -oy + texH);
-      p.image(cloudTexture, -ox + texW, -oy + texH);
-      p.pop();
-    }
-
-    function buildCloudTexture() {
-      const scale = 0.0105;
-      const detail = 0.045;
-      const alphaBoost = 255;
-      const texW = Math.max(256, Math.ceil(p.width * 1.6));
-      const texH = Math.max(256, Math.ceil(p.height * 1.6));
-      cloudTexture = p.createImage(texW, texH);
-      cloudTexture.loadPixels();
-      const seed = Math.random() * 10_000;
-      for (let y = 0; y < texH; y++) {
-        for (let x = 0; x < texW; x++) {
-          const n1 = tileNoise(x, y, scale, seed, texW, texH);
-          const n2 = tileNoise(x, y, detail, seed + 90, texW, texH);
-          const density = clamp01((n1 - 0.28) * 2.25 + (n2 - 0.4) * 1.05);
-          const alpha = Math.min(255, density * alphaBoost + 28);
-          const pix = getIndex(x, y, texW) * 4;
-          cloudTexture.pixels[pix] = 255;
-          cloudTexture.pixels[pix + 1] = 255;
-          cloudTexture.pixels[pix + 2] = 255;
-          cloudTexture.pixels[pix + 3] = alpha;
-        }
-      }
-      cloudTexture.updatePixels();
-    }
-
-    function tileNoise(x, y, frequency, seed, wrapW, wrapH) {
-      const fx = x * frequency;
-      const fy = y * frequency;
-      const wrapX = wrapW * frequency;
-      const wrapY = wrapH * frequency;
-      const tx = x / wrapW;
-      const ty = y / wrapH;
-
-      const a = p.noise(seed + fx, seed + fy);
-      const b = p.noise(seed + fx + wrapX, seed + fy);
-      const c = p.noise(seed + fx, seed + fy + wrapY);
-      const d = p.noise(seed + fx + wrapX, seed + fy + wrapY);
-
-      const ab = p.lerp(a, b, tx);
-      const cd = p.lerp(c, d, tx);
-      return p.lerp(ab, cd, ty);
     }
 
     function drawSelectionsAndPath() {
@@ -592,7 +521,8 @@ export function createMapSketch(containerEl, { onReady } = {}) {
         path.map((pt) => ({ x: pt.x + 0.5, y: pt.y + 0.5 })),
         MAX_PATH_POINTS
       );
-      const pts = smoothPathPoints(basePts, PATH_SMOOTH_ITERATIONS);
+
+      const pts = smoothPathPoints(basePts, 10, 0.5);
 
       if (pts.length < 2) {
         return;
@@ -732,8 +662,6 @@ export function createMapSketch(containerEl, { onReady } = {}) {
         terrainTypeMap = [];
         heightMap = [];
         waterMask = null;
-        cloudTexture = null;
-        cloudOffset = { x: 0, y: 0 };
         resetSelections(false);
         randomizeNoiseSeed();
         mapReadyEmitted = false;
@@ -800,27 +728,55 @@ export function createMapSketch(containerEl, { onReady } = {}) {
       return result;
     }
 
-    function smoothPathPoints(points, iterations = 2) {
-      let pts = points.slice();
-      for (let iter = 0; iter < iterations; iter++) {
-        const next = [pts[0]];
-        for (let i = 0; i < pts.length - 1; i++) {
-          const p1 = pts[i];
-          const p2 = pts[i + 1];
-          const q1 = {
-            x: p1.x * 0.75 + p2.x * 0.25,
-            y: p1.y * 0.75 + p2.y * 0.25,
-          };
-          const q2 = {
-            x: p1.x * 0.25 + p2.x * 0.75,
-            y: p1.y * 0.25 + p2.y * 0.75,
-          };
-          next.push(q1, q2);
+    function smoothPathPoints(points, samplesPerSegment = 10, tension = 0.5) {
+      // Catmull–Rom spline sampling.
+      // samplesPerSegment: higher = smoother, slower
+      // tension: 0.5 is the classic Catmull–Rom; lower is looser, higher is tighter
+
+      if (!points || points.length < 2) return points || [];
+
+      // Duplicate endpoints so the spline starts/ends at the first/last point
+      const pts = [points[0], ...points, points[points.length - 1]];
+
+      const out = [];
+      for (let i = 0; i < pts.length - 3; i++) {
+        const p0 = pts[i];
+        const p1 = pts[i + 1];
+        const p2 = pts[i + 2];
+        const p3 = pts[i + 3];
+
+        // Add the first point of the segment once
+        if (i === 0) out.push({ x: p1.x, y: p1.y });
+
+        for (let j = 1; j <= samplesPerSegment; j++) {
+          const t = j / samplesPerSegment;
+          out.push(catmullRomPoint(p0, p1, p2, p3, t, tension));
         }
-        next.push(pts[pts.length - 1]);
-        pts = next;
       }
-      return pts;
+
+      return out;
+    }
+
+    function catmullRomPoint(p0, p1, p2, p3, t, tension = 0.5) {
+      // Standard Catmull–Rom basis with configurable tension.
+      // Equivalent to converting to tangents scaled by tension.
+      const t2 = t * t;
+      const t3 = t2 * t;
+
+      const m1x = (p2.x - p0.x) * tension;
+      const m1y = (p2.y - p0.y) * tension;
+      const m2x = (p3.x - p1.x) * tension;
+      const m2y = (p3.y - p1.y) * tension;
+
+      const a0 = 2 * t3 - 3 * t2 + 1;
+      const a1 = t3 - 2 * t2 + t;
+      const a2 = -2 * t3 + 3 * t2;
+      const a3 = t3 - t2;
+
+      return {
+        x: a0 * p1.x + a1 * m1x + a2 * p2.x + a3 * m2x,
+        y: a0 * p1.y + a1 * m1y + a2 * p2.y + a3 * m2y,
+      };
     }
 
     function clamp01(value) {
