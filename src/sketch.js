@@ -1,7 +1,7 @@
 import p5 from "p5";
 import { TERRAIN, findPath, getIndex } from "./pathfinding.js";
 
-export function createTerrainSketch(containerEl, { onReady } = {}) {
+export function createMapSketch(containerEl, { onReady } = {}) {
   const targetEl = containerEl || document.getElementById("map-frame");
 
   const sketch = (p) => {
@@ -452,7 +452,9 @@ export function createTerrainSketch(containerEl, { onReady } = {}) {
 
     function emitPathSummary(summary) {
       const safeSummary =
-        summary && summary.hasPath ? summary : { hasPath: false };
+        summary && summary.hasPath
+          ? summary
+          : { hasPath: false, length: 0, cost: 0, maps: null };
       window.dispatchEvent(
         new CustomEvent("path-summary", {
           detail: safeSummary,
@@ -573,12 +575,7 @@ export function createTerrainSketch(containerEl, { onReady } = {}) {
         cost += MOVEMENT_COSTS[terrain] || 1;
       }
 
-      return {
-        hasPath: true,
-        length: path.length,
-        cost,
-        terrains: counts,
-      };
+      return { hasPath: true, length: path.length, cost, maps: counts };
     }
 
     function randomizeNoiseSeed() {

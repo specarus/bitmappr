@@ -1,5 +1,5 @@
-import TerrainCanvas from "./TerrainCanvas.jsx";
-import TerrainLegend from "./TerrainLegend.jsx";
+import MapCanvas from "./MapCanvas.jsx";
+import MapLegend from "./MapLegend.jsx";
 
 import { useEffect, useRef, useState } from "react";
 
@@ -76,18 +76,18 @@ export default function MapArea() {
       </div>
 
       <div className="w-full flex-1 p-4">
-        <TerrainCanvas />
+        <MapCanvas />
       </div>
 
       <div className="absolute z-10 bottom-7 right-7 flex flex-col items-end gap-2">
         <button
           onClick={() => setShowTabs(!showTabs)}
-          className="p-3 rounded-full backdrop-blur-lg bg-[rgba(7,13,26,0.65)] shadow-md border border-white/10"
+          className="p-2 rounded-full backdrop-blur-lg bg-[rgba(7,13,26,0.65)] shadow-md border border-white/10"
         >
           {showTabs ? (
-            <Eye className="w-7 h-7 text-white" />
+            <Eye className="w-5 h-5 text-white" />
           ) : (
-            <EyeOff className="w-7 h-7 text-white" />
+            <EyeOff className="w-5 h-5 text-white" />
           )}
         </button>
 
@@ -103,7 +103,7 @@ export default function MapArea() {
 
       {showTabs && (
         <div className="pointer-events-none absolute inset-0 z-20 left-7 top-7">
-          <TerrainLegend />
+          <MapLegend />
         </div>
       )}
 

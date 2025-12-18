@@ -12,7 +12,7 @@ export default function Sidebar() {
         hasPath: Boolean(detail.hasPath),
         length: detail.length,
         cost: detail.cost,
-        terrains: detail.terrains,
+        maps: detail.maps,
       });
     };
     window.addEventListener("path-summary", handler);
@@ -32,7 +32,7 @@ export default function Sidebar() {
     window.dispatchEvent(new Event("regenerate-map"));
   };
 
-  const terrainChips = pathSummary?.terrains
+  const mapChips = pathSummary?.maps
     ? [
         { key: "water", label: "Water", color: "#28ffff" },
         { key: "sand", label: "Sand", color: "#f5e9bb" },
@@ -40,7 +40,7 @@ export default function Sidebar() {
         { key: "trees", label: "Trees", color: "#1f8c50" },
         { key: "mountain", label: "Rock", color: "#a3988e" },
         { key: "snow", label: "Snow", color: "#ffffff" },
-      ].filter((item) => pathSummary.terrains[item.key] > 0)
+      ].filter((item) => pathSummary.maps[item.key] > 0)
     : [];
 
   return (
@@ -120,17 +120,15 @@ export default function Sidebar() {
                   </p>
                 </div>
               </div>
-              {terrainChips.length > 0 && (
+              {mapChips.length > 0 && (
                 <div className="flex flex-wrap gap-2 text-[11px]">
-                  {terrainChips.map((chip) => {
-                    const total = Object.values(pathSummary.terrains).reduce(
+                  {mapChips.map((chip) => {
+                    const total = Object.values(pathSummary.maps).reduce(
                       (a, b) => a + b,
                       0
                     );
                     const percent = total
-                      ? Math.round(
-                          (pathSummary.terrains[chip.key] / total) * 100
-                        )
+                      ? Math.round((pathSummary.maps[chip.key] / total) * 100)
                       : 0;
                     return (
                       <span
@@ -159,7 +157,7 @@ export default function Sidebar() {
                 New world
               </p>
               <p className="text-sm font-semibold m-0 text-white">
-                Regenerate terrain
+                Regenerate map
               </p>
             </div>
           </div>

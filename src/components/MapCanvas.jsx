@@ -1,14 +1,14 @@
 import { useEffect, useRef } from "react";
-import { createTerrainSketch } from "../sketch.js";
+import { createMapSketch } from "../sketch.js";
 
-export default function TerrainCanvas() {
+export default function MapCanvas() {
   const frameRef = useRef(null);
 
   useEffect(() => {
     if (!frameRef.current) {
       return undefined;
     }
-    const instance = createTerrainSketch(frameRef.current);
+    const instance = createMapSketch(frameRef.current);
     return () => {
       if (instance) {
         instance.remove();
