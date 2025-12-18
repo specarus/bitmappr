@@ -42,6 +42,9 @@ export function createMapSketch(containerEl, { onReady } = {}) {
     let startCell = null;
     let endCell = null;
     let currentPath = [];
+    const PATH_ANIMATION_DURATION = 1500;
+    let pathAnimationActive = false;
+    let pathAnimationStart = 0;
 
     const START_COLOR = { r: 34, g: 211, b: 238 };
     const MID_PATH_COLOR = { r: 167, g: 139, b: 250 };
@@ -141,7 +144,8 @@ export function createMapSketch(containerEl, { onReady } = {}) {
       p.image(terrainImage, 0, 0);
       drawWaterOverlay();
       drawHeatmapOverlay();
-      drawSelectionsAndPath();
+      const pathProgress = getPathAnimationProgress();
+      drawSelectionsAndPath(pathProgress);
 
       if (!mapReadyEmitted) {
         mapReadyEmitted = true;
@@ -208,10 +212,11 @@ export function createMapSketch(containerEl, { onReady } = {}) {
           emitPathState(false);
           emitPathSummary({ hasPath: false });
         } else {
-          endCell = clickedCell;
-          currentPath = nextPath;
-          emitPathState(true);
-          emitPathSummary(computePathSummary(currentPath));
+        endCell = clickedCell;
+        currentPath = nextPath;
+        startPathAnimation();
+        emitPathState(true);
+        emitPathSummary(computePathSummary(currentPath));
         }
       }
 
@@ -499,10 +504,10 @@ export function createMapSketch(containerEl, { onReady } = {}) {
     }
 
 
-    function drawSelectionsAndPath() {
+    function drawSelectionsAndPath(pathProgress = 1) {
       // Draw the path first so markers/pins sit on top.
       if (currentPath.length) {
-        drawSmoothPath(currentPath);
+        drawSmoothPath(currentPath, pathProgress);
       }
       if (startCell) {
         drawMarker(
@@ -513,6 +518,23 @@ export function createMapSketch(containerEl, { onReady } = {}) {
       if (endCell) {
         drawPinIcon(endCell, p.color(END_COLOR.r, END_COLOR.g, END_COLOR.b));
       }
+    }
+
+    function startPathAnimation() {
+      pathAnimationActive = Boolean(currentPath.length);
+      pathAnimationStart = p.millis();
+    }
+
+    function getPathAnimationProgress() {
+      if (!pathAnimationActive || !currentPath.length) {
+        return 1;
+      }
+      const elapsed = p.millis() - pathAnimationStart;
+      const progress = clamp01(elapsed / PATH_ANIMATION_DURATION);
+      if (progress >= 1) {
+        pathAnimationActive = false;
+      }
+      return progress;
     }
 
     function drawMarker(cell, markerColor) {
@@ -560,7 +582,7 @@ export function createMapSketch(containerEl, { onReady } = {}) {
       p.pop();
     }
 
-    function drawSmoothPath(path) {
+    function drawSmoothPath(path, progress = 1) {
       const basePts = downsamplePoints(
         path.map((pt) => ({ x: pt.x + 0.5, y: pt.y + 0.5 })),
         MAX_PATH_POINTS
@@ -592,21 +614,55 @@ export function createMapSketch(containerEl, { onReady } = {}) {
       p.strokeCap(p.ROUND);
       p.strokeJoin(p.ROUND);
 
+      const totalSegments = pts.length - 1;
+      const clampedProgress = clamp01(progress);
+      if (clampedProgress <= 0) {
+        p.pop();
+        return;
+      }
+      const activeSegments = clampedProgress * totalSegments;
+      const fullSegments = Math.floor(activeSegments);
+      const partialAmount = activeSegments - fullSegments;
+      const hasPartialSegment =
+        partialAmount > 0 && fullSegments < totalSegments;
+      const colorDenominator = Math.max(1, pts.length - 2);
+      const lerpPoint = (from, to, t) => ({
+        x: from.x + (to.x - from.x) * t,
+        y: from.y + (to.y - from.y) * t,
+      });
+
       p.stroke(255, 255, 255, 30);
       p.strokeWeight(6);
-      for (let i = 0; i < pts.length - 1; i++) {
+      for (let i = 0; i < fullSegments; i++) {
         const a = pts[i];
         const b = pts[i + 1];
         p.line(a.x, a.y, b.x, b.y);
       }
+      if (hasPartialSegment) {
+        const a = pts[fullSegments];
+        const b = pts[fullSegments + 1];
+        const endpoint = lerpPoint(a, b, partialAmount);
+        p.line(a.x, a.y, endpoint.x, endpoint.y);
+      }
 
       p.strokeWeight(3);
-      for (let i = 0; i < pts.length - 1; i++) {
+      for (let i = 0; i < fullSegments; i++) {
         const a = pts[i];
         const b = pts[i + 1];
-        const t = i / (pts.length - 2);
+        const t = Math.min(1, i / colorDenominator);
         p.stroke(lerpGradient(t));
         p.line(a.x, a.y, b.x, b.y);
+      }
+      if (hasPartialSegment) {
+        const a = pts[fullSegments];
+        const b = pts[fullSegments + 1];
+        const endpoint = lerpPoint(a, b, partialAmount);
+        const colorT = Math.min(
+          1,
+          (fullSegments + partialAmount) / colorDenominator
+        );
+        p.stroke(lerpGradient(colorT));
+        p.line(a.x, a.y, endpoint.x, endpoint.y);
       }
 
       p.pop();
@@ -683,6 +739,8 @@ export function createMapSketch(containerEl, { onReady } = {}) {
       startCell = null;
       endCell = null;
       currentPath = [];
+      pathAnimationActive = false;
+      pathAnimationStart = 0;
       emitPathState(false);
       emitPathSummary({ hasPath: false });
       if (shouldRedraw) {
