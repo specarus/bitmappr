@@ -33,6 +33,11 @@ export function createMapSketch(containerEl, { onReady } = {}) {
 
     let terrainImage;
     let terrainTypeMap = [];
+    let heightMap = [];
+    let waterMask = null;
+    let cloudTexture = null;
+    let cloudOffset = { x: 0, y: 0 };
+    let cloudWind = { x: 0.06, y: 0.02 };
     let startCell = null;
     let endCell = null;
     let currentPath = [];
@@ -59,6 +64,7 @@ export function createMapSketch(containerEl, { onReady } = {}) {
       { key: "mountain", id: TERRAIN.MOUNTAIN, from: "#64605c", to: "#a3988e" },
       { key: "snow", id: TERRAIN.SNOW, from: "#dce8f0", to: "#ffffff" },
     ];
+    const LIGHT_DIRECTION = normalizeVec3(0.45, 0.75, 1.1);
 
     const zoomFactor = 100;
 
@@ -77,6 +83,9 @@ export function createMapSketch(containerEl, { onReady } = {}) {
       if (mapCanvas.drawingContext) {
         mapCanvas.drawingContext.imageSmoothingEnabled = true;
       }
+
+      p.frameRate(30);
+      p.loop();
 
       waterTerrain = new TerrainType(
         0.2,
@@ -120,8 +129,7 @@ export function createMapSketch(containerEl, { onReady } = {}) {
         0.2
       );
 
-      p.noLoop();
-
+      p.frameRate(30);
       attachControlListeners();
       emitPathState(false);
       emitPathSummary({ hasPath: false });
@@ -130,6 +138,11 @@ export function createMapSketch(containerEl, { onReady } = {}) {
     p.windowResized = () => {
       resizeMapCanvas();
       terrainImage = null;
+      terrainTypeMap = [];
+      heightMap = [];
+      waterMask = null;
+      cloudTexture = null;
+      cloudOffset = { x: 0, y: 0 };
       resetSelections(false);
       randomizeNoiseSeed();
       p.redraw();
@@ -141,6 +154,8 @@ export function createMapSketch(containerEl, { onReady } = {}) {
       }
 
       p.image(terrainImage, 0, 0);
+      drawWaterOverlay();
+      drawClouds();
       drawSelectionsAndPath();
 
       if (!mapReadyEmitted) {
@@ -299,6 +314,7 @@ export function createMapSketch(containerEl, { onReady } = {}) {
       p.noiseSeed(noiseSeedValue);
       terrainImage = p.createImage(p.width, p.height);
       terrainTypeMap = new Uint8Array(p.width * p.height);
+      heightMap = new Float32Array(p.width * p.height);
       const counts = {
         water: 0,
         sand: 0,
@@ -315,6 +331,7 @@ export function createMapSketch(containerEl, { onReady } = {}) {
           const index = getIndex(x, y, p.width);
           const { terrainType, terrainColor } = classifyTerrain(noiseValue);
           terrainTypeMap[index] = terrainType;
+          heightMap[index] = noiseValue;
           incrementBiomeCount(counts, terrainType);
 
           const pixelIndex = index * 4;
@@ -325,7 +342,187 @@ export function createMapSketch(containerEl, { onReady } = {}) {
         }
       }
       terrainImage.updatePixels();
+      applyLightingAndContours();
+      buildWaterMask();
+      cloudTexture = null;
+      cloudOffset = { x: 0, y: 0 };
       emitBiomeStats(counts, p.width * p.height);
+    }
+
+    function applyLightingAndContours() {
+      if (!terrainImage || !heightMap.length) {
+        return;
+      }
+      const contourSpacing = 0.055;
+      const contourWidth = contourSpacing * 0.35;
+      const ambient = 0.45;
+      const diffuse = 0.6;
+
+      terrainImage.loadPixels();
+      for (let y = 0; y < p.height; y++) {
+        for (let x = 0; x < p.width; x++) {
+          const idx = getIndex(x, y, p.width);
+          const pix = idx * 4;
+          const isWater = terrainTypeMap[idx] === TERRAIN.WATER;
+          const normal = computeNormal(x, y);
+          const lightDot = clamp01(
+            normal.x * LIGHT_DIRECTION.x +
+              normal.y * LIGHT_DIRECTION.y +
+              normal.z * LIGHT_DIRECTION.z
+          );
+          const shade = clamp01(ambient + diffuse * lightDot);
+          const contourBand = Math.abs(
+            (heightMap[idx] % contourSpacing) - contourSpacing / 2
+          );
+          const contourBoost =
+            !isWater && contourBand < contourWidth
+              ? 0.22 * (1 - contourBand / contourWidth)
+              : 0;
+
+          for (let c = 0; c < 3; c++) {
+            const base = terrainImage.pixels[pix + c] * shade;
+            const boosted = base + 255 * contourBoost * 0.6;
+            terrainImage.pixels[pix + c] = Math.min(255, boosted);
+          }
+        }
+      }
+      terrainImage.updatePixels();
+    }
+
+    function computeNormal(x, y) {
+      const sx = Math.max(0, Math.min(p.width - 1, x));
+      const sy = Math.max(0, Math.min(p.height - 1, y));
+      const clampX = (val) => Math.max(0, Math.min(p.width - 1, val));
+      const clampY = (val) => Math.max(0, Math.min(p.height - 1, val));
+      const getHeight = (ix, iy) => heightMap[getIndex(clampX(ix), clampY(iy), p.width)];
+      const hL = getHeight(sx - 1, sy);
+      const hR = getHeight(sx + 1, sy);
+      const hU = getHeight(sx, sy - 1);
+      const hD = getHeight(sx, sy + 1);
+      const scale = 1.4;
+      const nx = (hL - hR) * scale;
+      const ny = (hU - hD) * scale;
+      const nz = 1;
+      const len = Math.max(0.0001, Math.sqrt(nx * nx + ny * ny + nz * nz));
+      return { x: nx / len, y: ny / len, z: nz / len };
+    }
+
+    function buildWaterMask() {
+      waterMask = p.createImage(p.width, p.height);
+      waterMask.loadPixels();
+      for (let i = 0; i < p.width * p.height; i++) {
+        const alpha = terrainTypeMap[i] === TERRAIN.WATER ? 255 : 0;
+        const pix = i * 4;
+        waterMask.pixels[pix] = alpha;
+        waterMask.pixels[pix + 1] = alpha;
+        waterMask.pixels[pix + 2] = alpha;
+        waterMask.pixels[pix + 3] = alpha;
+      }
+      waterMask.updatePixels();
+    }
+
+    function drawWaterOverlay() {
+      if (!waterMask) {
+        return;
+      }
+      const t = p.millis() * 0.002;
+      const overlay = p.createImage(p.width, p.height);
+      overlay.loadPixels();
+      for (let y = 0; y < p.height; y++) {
+        const waveY = Math.sin(y * 0.075 + t * 1.6);
+        for (let x = 0; x < p.width; x++) {
+          const waveX = Math.sin(x * 0.095 + t * 2.4);
+          const cross = Math.sin((x + y) * 0.02 + t * 1.2);
+          const wave = waveX + waveY * 0.7 + cross * 0.4;
+          const sparkle = clamp01(0.5 + 0.5 * Math.sin(x * 0.14 + t * 3.3));
+          const pix = getIndex(x, y, p.width) * 4;
+          overlay.pixels[pix] = 26 + 18 * sparkle;
+          overlay.pixels[pix + 1] = 170 + 30 * sparkle;
+          overlay.pixels[pix + 2] = 246 + 8 * sparkle;
+          overlay.pixels[pix + 3] = Math.min(160, clamp01(0.5 + 0.35 * wave) * 120 + 16);
+        }
+      }
+      overlay.updatePixels();
+      overlay.mask(waterMask);
+      p.blend(
+        overlay,
+        0,
+        0,
+        p.width,
+        p.height,
+        0,
+        0,
+        p.width,
+        p.height,
+        p.SCREEN
+      );
+    }
+
+    function drawClouds() {
+      if (!cloudTexture) {
+        buildCloudTexture();
+      }
+      if (!cloudTexture) {
+        return;
+      }
+      const dt = Math.max(0.016, p.deltaTime || 16) / 16.666;
+      const texW = cloudTexture.width;
+      const texH = cloudTexture.height;
+      cloudOffset.x = (cloudOffset.x + cloudWind.x * dt) % texW;
+      cloudOffset.y = (cloudOffset.y + cloudWind.y * dt) % texH;
+
+      p.push();
+      p.tint(255, 190);
+      const ox = cloudOffset.x;
+      const oy = cloudOffset.y;
+      p.image(cloudTexture, -ox, -oy);
+      p.image(cloudTexture, -ox + texW, -oy);
+      p.image(cloudTexture, -ox, -oy + texH);
+      p.image(cloudTexture, -ox + texW, -oy + texH);
+      p.pop();
+    }
+
+    function buildCloudTexture() {
+      const scale = 0.0105;
+      const detail = 0.045;
+      const alphaBoost = 255;
+      const texW = Math.max(256, Math.ceil(p.width * 1.6));
+      const texH = Math.max(256, Math.ceil(p.height * 1.6));
+      cloudTexture = p.createImage(texW, texH);
+      cloudTexture.loadPixels();
+      const seed = Math.random() * 10_000;
+      for (let y = 0; y < texH; y++) {
+        for (let x = 0; x < texW; x++) {
+          const n1 = tileNoise(x, y, scale, seed, texW, texH);
+          const n2 = tileNoise(x, y, detail, seed + 90, texW, texH);
+          const density = clamp01((n1 - 0.28) * 2.25 + (n2 - 0.4) * 1.05);
+          const alpha = Math.min(255, density * alphaBoost + 28);
+          const pix = getIndex(x, y, texW) * 4;
+          cloudTexture.pixels[pix] = 255;
+          cloudTexture.pixels[pix + 1] = 255;
+          cloudTexture.pixels[pix + 2] = 255;
+          cloudTexture.pixels[pix + 3] = alpha;
+        }
+      }
+      cloudTexture.updatePixels();
+    }
+
+    function tileNoise(x, y, frequency, seed, wrapW, wrapH) {
+      const fx = x * frequency;
+      const fy = y * frequency;
+      const wrapX = wrapW * frequency;
+      const wrapY = wrapH * frequency;
+      const tx = x / wrapW;
+      const ty = y / wrapH;
+
+      const a = p.noise(seed + fx, seed + fy);
+      const b = p.noise(seed + fx + wrapX, seed + fy);
+      const c = p.noise(seed + fx, seed + fy + wrapY);
+      const d = p.noise(seed + fx + wrapX, seed + fy + wrapY);
+
+      const ab = p.lerp(a, b, tx);
+      const cd = p.lerp(c, d, tx);
+      return p.lerp(ab, cd, ty);
     }
 
     function drawSelectionsAndPath() {
@@ -532,6 +729,10 @@ export function createMapSketch(containerEl, { onReady } = {}) {
         regenerateTimeout = null;
         terrainImage = null;
         terrainTypeMap = [];
+        heightMap = [];
+        waterMask = null;
+        cloudTexture = null;
+        cloudOffset = { x: 0, y: 0 };
         resetSelections(false);
         randomizeNoiseSeed();
         mapReadyEmitted = false;
@@ -619,6 +820,15 @@ export function createMapSketch(containerEl, { onReady } = {}) {
         pts = next;
       }
       return pts;
+    }
+
+    function clamp01(value) {
+      return Math.max(0, Math.min(1, value));
+    }
+
+    function normalizeVec3(x, y, z) {
+      const len = Math.sqrt(x * x + y * y + z * z) || 1;
+      return { x: x / len, y: y / len, z: z / len };
     }
 
     function resizeMapCanvas() {

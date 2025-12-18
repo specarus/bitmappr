@@ -49,8 +49,8 @@ export default function Sidebar() {
       className="w-1/4 min-h-screen relative overflow-hidden border-r border-white/10 bg-white/5 backdrop-blur-md"
     >
       <div className="absolute inset-0 pointer-events-none">
-        <div className="absolute w-48 h-48 -top-10 -right-6 bg-gradient-to-br from-[#7dd3fc] to-[#a78bfa] blur-[70px] opacity-40 animate-pulse"></div>
-        <div className="absolute w-52 h-52 -bottom-16 -left-10 bg-gradient-to-br from-[#ff8f70] to-[#ff2fb0] blur-[80px] opacity-40 animate-[pulse_6s_ease-in-out_infinite]"></div>
+        <div className="absolute w-48 h-48 -top-10 -right-6 bg-gradient-to-br from-emerald-800 to-emerald-500 blur-[70px] opacity-40 animate-pulse"></div>
+        <div className="absolute w-52 h-52 -bottom-16 -left-10 bg-gradient-to-br from-emerald-400 to-emerald-200 blur-[80px] opacity-40 animate-[pulse_6s_ease-in-out_infinite]"></div>
         <div className="absolute w-28 h-28 top-24 left-10 rounded-full border border-white/20 animate-ping"></div>
       </div>
 
