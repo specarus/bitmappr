@@ -80,7 +80,6 @@ function draw() {
 }
 
 function sampleTerrainNoise(x, y) {
-  // baseFrequency < 1 zooms in (acts like a larger zoomFactor without changing it).
   const baseFrequency = 0.7;
   const nx = (x / zoomFactor) * baseFrequency;
   const ny = (y / zoomFactor) * baseFrequency;
@@ -127,17 +126,35 @@ function normalize(value, max, min) {
 
 function classifyTerrain(noiseValue) {
   if (noiseValue < waterTerrain.maxHeight) {
-    return { terrainType: TERRAIN.WATER, terrainColor: getTerrainColor(noiseValue, waterTerrain) };
+    return {
+      terrainType: TERRAIN.WATER,
+      terrainColor: getTerrainColor(noiseValue, waterTerrain),
+    };
   } else if (noiseValue < sandTerrain.maxHeight) {
-    return { terrainType: TERRAIN.SAND, terrainColor: getTerrainColor(noiseValue, sandTerrain) };
+    return {
+      terrainType: TERRAIN.SAND,
+      terrainColor: getTerrainColor(noiseValue, sandTerrain),
+    };
   } else if (noiseValue < grassTerrain.maxHeight) {
-    return { terrainType: TERRAIN.GRASS, terrainColor: getTerrainColor(noiseValue, grassTerrain) };
+    return {
+      terrainType: TERRAIN.GRASS,
+      terrainColor: getTerrainColor(noiseValue, grassTerrain),
+    };
   } else if (noiseValue < treesTerrain.maxHeight) {
-    return { terrainType: TERRAIN.TREES, terrainColor: getTerrainColor(noiseValue, treesTerrain) };
+    return {
+      terrainType: TERRAIN.TREES,
+      terrainColor: getTerrainColor(noiseValue, treesTerrain),
+    };
   } else if (noiseValue < mountainTerrain.maxHeight) {
-    return { terrainType: TERRAIN.MOUNTAIN, terrainColor: getTerrainColor(noiseValue, mountainTerrain) };
+    return {
+      terrainType: TERRAIN.MOUNTAIN,
+      terrainColor: getTerrainColor(noiseValue, mountainTerrain),
+    };
   }
-  return { terrainType: TERRAIN.SNOW, terrainColor: getTerrainColor(noiseValue, snowTerrain) };
+  return {
+    terrainType: TERRAIN.SNOW,
+    terrainColor: getTerrainColor(noiseValue, snowTerrain),
+  };
 }
 
 function generateTerrainLayer() {
@@ -203,19 +220,10 @@ function drawSelectionsAndPath() {
     drawMarker(startCell, color(255, 215, 0));
   }
   if (endCell) {
-    drawMarker(endCell, color(255, 69, 0));
+    drawPinIcon(endCell, color(255, 69, 0));
   }
   if (currentPath.length) {
-    push();
-    stroke(255, 0, 140);
-    strokeWeight(2);
-    noFill();
-    beginShape();
-    for (const point of currentPath) {
-      vertex(point.x + 0.5, point.y + 0.5);
-    }
-    endShape();
-    pop();
+    drawSmoothPath(currentPath);
   }
 }
 
@@ -223,6 +231,79 @@ function drawMarker(cell, markerColor) {
   push();
   noStroke();
   fill(markerColor);
-  rect(cell.x - 2, cell.y - 2, 5, 5);
+  ellipse(cell.x + 0.5, cell.y + 0.5, 5, 5);
   pop();
+}
+
+function drawPinIcon(cell, strokeCol) {
+  // Approximate lucide-react "MapPin" icon drawn in p5 for the destination.
+  push();
+  // Place the pin tip at the center of the destination cell so the icon sits atop the cell.
+  translate(cell.x + 0.5, cell.y + 0.5);
+  const scaleFactor = 0.5;
+  scale(scaleFactor);
+  // Shift drawing so the icon's tip (originally at 12,21) aligns with the origin.
+  translate(-12, -21);
+  stroke(strokeCol);
+  strokeWeight(1.4 / scaleFactor);
+  strokeJoin(ROUND);
+  strokeCap(ROUND);
+  noFill();
+
+  beginShape();
+  vertex(12, 21);
+  bezierVertex(12, 21, 6, 15.6, 6, 11);
+  bezierVertex(6, 7.686, 8.686, 5, 12, 5);
+  bezierVertex(15.314, 5, 18, 7.686, 18, 11);
+  bezierVertex(18, 15.6, 12, 21, 12, 21);
+  endShape();
+
+  ellipse(12, 11, 6, 6);
+  pop();
+}
+
+function drawSmoothPath(path) {
+  push();
+  stroke(255, 0, 140);
+  strokeWeight(2);
+  noFill();
+  curveTightness(0.6);
+  beginShape();
+
+  const pts = smoothPathPoints(
+    path.map((p) => ({ x: p.x + 0.5, y: p.y + 0.5 })),
+    6
+  );
+
+  if (pts.length === 1) {
+    vertex(pts[0].x, pts[0].y);
+  } else {
+    const first = pts[0];
+    const last = pts[pts.length - 1];
+    curveVertex(first.x, first.y);
+    for (const pt of pts) {
+      curveVertex(pt.x, pt.y);
+    }
+    curveVertex(last.x, last.y);
+  }
+
+  endShape();
+  pop();
+}
+
+function smoothPathPoints(points, iterations = 2) {
+  let pts = points.slice();
+  for (let iter = 0; iter < iterations; iter++) {
+    const next = [pts[0]];
+    for (let i = 0; i < pts.length - 1; i++) {
+      const p = pts[i];
+      const q = pts[i + 1];
+      const q1 = { x: p.x * 0.75 + q.x * 0.25, y: p.y * 0.75 + q.y * 0.25 };
+      const q2 = { x: p.x * 0.25 + q.x * 0.75, y: p.y * 0.25 + q.y * 0.75 };
+      next.push(q1, q2);
+    }
+    next.push(pts[pts.length - 1]);
+    pts = next;
+  }
+  return pts;
 }
