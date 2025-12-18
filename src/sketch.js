@@ -1,6 +1,7 @@
 import p5 from "p5";
 import { TERRAIN, findPath, getIndex, MOVEMENT_COSTS } from "./pathfinding.js";
 import { HEATMAP_COLORS } from "./heatmap-config.js";
+import { BIOME_META } from "./biome-meta.js";
 
 export function createMapSketch(containerEl, { onReady } = {}) {
   const targetEl = containerEl || document.getElementById("map-frame");
@@ -49,14 +50,6 @@ export function createMapSketch(containerEl, { onReady } = {}) {
     const PATH_SMOOTH_ITERATIONS = 2;
     let controlListenersAttached = false;
     let noiseSeedValue = Math.floor(Math.random() * 1_000_000_000);
-    const BIOME_META = [
-      { key: "water", id: TERRAIN.WATER, from: "#1eb0fb", to: "#28ffff" },
-      { key: "sand", id: TERRAIN.SAND, from: "#d7c08c", to: "#f5e9bb" },
-      { key: "grass", id: TERRAIN.GRASS, from: "#41b45a", to: "#88e277" },
-      { key: "trees", id: TERRAIN.TREES, from: "#0f6e44", to: "#1f8c50" },
-      { key: "mountain", id: TERRAIN.MOUNTAIN, from: "#64605c", to: "#a3988e" },
-      { key: "snow", id: TERRAIN.SNOW, from: "#dce8f0", to: "#ffffff" },
-    ];
     const LIGHT_DIRECTION = normalizeVec3(0.45, 0.75, 1.1);
 
     const zoomFactor = 100;
@@ -631,7 +624,7 @@ export function createMapSketch(containerEl, { onReady } = {}) {
       const safeSummary =
         summary && summary.hasPath
           ? summary
-          : { hasPath: false, length: 0, cost: 0, maps: null };
+          : { hasPath: false, length: 0, cost: 0, timePerKm: 0, maps: null };
       window.dispatchEvent(
         new CustomEvent("path-summary", {
           detail: safeSummary,
@@ -769,7 +762,15 @@ export function createMapSketch(containerEl, { onReady } = {}) {
         cost += MOVEMENT_COSTS[terrain] || 1;
       }
 
-      return { hasPath: true, length: path.length, cost, maps: counts };
+      const distanceKm = path.length;
+      const timePerKm = distanceKm ? cost / distanceKm : 0;
+      return {
+        hasPath: true,
+        length: distanceKm,
+        cost,
+        timePerKm,
+        maps: counts,
+      };
     }
 
     function randomizeNoiseSeed() {

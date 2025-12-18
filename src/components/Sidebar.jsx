@@ -1,8 +1,40 @@
 import { useEffect, useState } from "react";
 import { RotateCw } from "lucide-react";
+import { BIOME_META } from "../biome-meta.js";
+
+const MOVEMENT_PACE_ENTRIES = BIOME_META.filter((meta) => meta.timePerKm > 0);
+
+const formatDuration = (value) => {
+  if (typeof value !== "number" || Number.isNaN(value)) {
+    return "0m";
+  }
+  const totalMinutes = Math.max(0, Math.round(value));
+  const hours = Math.floor(totalMinutes / 60);
+  const minutes = totalMinutes % 60;
+  const parts = [];
+  if (hours) {
+    parts.push(`${hours}h`);
+  }
+  if (minutes || !parts.length) {
+    parts.push(`${minutes}m`);
+  }
+  return parts.join(" ");
+};
+
+const formatMinutes = (value) => formatDuration(value);
+const formatTimePerKm = (value) => {
+  if (typeof value !== "number" || Number.isNaN(value)) {
+    return "0 min";
+  }
+  const minutes = Math.max(0, Math.round(value));
+  return `${minutes} min`;
+};
 
 export default function Sidebar() {
-  const [pathSummary, setPathSummary] = useState({ hasPath: false });
+  const [pathSummary, setPathSummary] = useState({
+    hasPath: false,
+    timePerKm: 0,
+  });
   const [refreshing, setRefreshing] = useState(false);
 
   useEffect(() => {
@@ -12,6 +44,7 @@ export default function Sidebar() {
         hasPath: Boolean(detail.hasPath),
         length: detail.length,
         cost: detail.cost,
+        timePerKm: detail.timePerKm,
         maps: detail.maps,
       });
     };
@@ -65,6 +98,23 @@ export default function Sidebar() {
                 Tap &gt; Tap &gt; Done
               </h2>
             </div>
+            <button
+              onClick={handleRegenerate}
+              disabled={refreshing}
+              className={`w-fit p-2 rounded-full transition border border-white/10 shadow-sm ${
+                refreshing
+                  ? "bg-emerald-400/60 text-slate-900/70 cursor-not-allowed"
+                  : "bg-emerald-400 text-slate-900 hover:bg-emerald-400/90"
+              }`}
+            >
+              <div
+                className={`grid place-items-center ${
+                  refreshing ? "animate-spin" : ""
+                }`}
+              >
+                <RotateCw className="w-4 h-4" />
+              </div>
+            </button>
           </div>
           <div className="flex items-center justify-between gap-3">
             <div className="flex items-center gap-2">
@@ -96,7 +146,7 @@ export default function Sidebar() {
                 Path summary
               </p>
               <p className="text-sm font-semibold m-0 text-white">
-                {pathSummary.hasPath ? "Route ready" : "Awaiting selection"}
+                {pathSummary.hasPath ? "Route found" : "Awaiting selection"}
               </p>
             </div>
           </div>
@@ -108,15 +158,25 @@ export default function Sidebar() {
                     Length
                   </p>
                   <p className="m-0 text-sm font-semibold text-white">
-                    {pathSummary.length || 0} tiles
+                    {pathSummary.length || 0} km
                   </p>
                 </div>
                 <div className="p-2 rounded-lg bg-white/5 border border-white/10">
                   <p className="m-0 text-[11px] uppercase tracking-[0.08em] text-slate-300">
-                    Cost
+                    Total time
                   </p>
                   <p className="m-0 text-sm font-semibold text-white">
-                    {pathSummary.cost || 0}
+                    {formatMinutes(pathSummary.cost)}
+                  </p>
+                </div>
+              </div>
+              <div className="grid grid-cols-1 gap-2 text-xs text-slate-200">
+                <div className="p-2 rounded-lg bg-white/5 border border-white/10">
+                  <p className="m-0 text-[11px] uppercase tracking-[0.08em] text-slate-300">
+                    Time / km
+                  </p>
+                  <p className="m-0 text-sm font-semibold text-white">
+                    {formatTimePerKm(pathSummary.timePerKm)}
                   </p>
                 </div>
               </div>
@@ -150,35 +210,32 @@ export default function Sidebar() {
           )}
         </div>
 
-        <div className="flex justify-between items-center rounded-xl border border-white/10 bg-white/5 shadow-panel backdrop-blur-lg p-4 space-y-3">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-[11px] uppercase tracking-[0.12em] text-slate-400 mb-1">
-                New world
-              </p>
-              <p className="text-sm font-semibold m-0 text-white">
-                Regenerate map
-              </p>
-            </div>
+        <div className="rounded-xl border border-white/10 bg-white/5 shadow-panel backdrop-blur-lg p-4 space-y-3 pointer-events-auto">
+          <div>
+            <p className="text-[11px] uppercase tracking-[0.12em] text-slate-400 mb-1">
+              Movement pace
+            </p>
+            <p className="text-[11px] text-slate-300 m-0">
+              Time per kilometer by terrain
+            </p>
           </div>
-
-          <button
-            onClick={handleRegenerate}
-            disabled={refreshing}
-            className={`p-2 rounded-full transition border border-white/10 shadow-sm ${
-              refreshing
-                ? "bg-emerald-400/60 text-slate-900/70 cursor-not-allowed"
-                : "bg-emerald-400 text-slate-900 hover:bg-emerald-400/90"
-            }`}
-          >
-            <div
-              className={`grid place-items-center ${
-                refreshing ? "animate-spin" : ""
-              }`}
-            >
-              <RotateCw className="w-4 h-4" />
-            </div>
-          </button>
+          <div className="grid grid-cols-3 gap-2">
+            {MOVEMENT_PACE_ENTRIES.map((entry) => (
+              <div
+                key={`pace-${entry.key}`}
+                className="rounded-lg border border-white/10 bg-black/10 px-3 py-2 space-y-1"
+              >
+                <p className="m-0 text-[10px] uppercase tracking-[0.2em] text-slate-400">
+                  {entry.label}
+                </p>
+                <div className="flex items-center gap-2">
+                  <p className="m-0 text-sm font-semibold text-white">
+                    {formatTimePerKm(entry.timePerKm)}
+                  </p>
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
       </div>
     </div>
