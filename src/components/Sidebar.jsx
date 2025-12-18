@@ -52,17 +52,6 @@ export default function Sidebar() {
             noise blend create new coastlines and elevation.
           </p>
         </div>
-
-        <div className="mt-auto rounded-2xl border border-white/10 bg-white/5 shadow-panel backdrop-blur-lg p-4 space-y-2">
-          <p className="text-xs uppercase tracking-[0.12em] text-slate-400">
-            Tips
-          </p>
-          <ul className="list-disc list-inside text-sm text-slate-200 space-y-1">
-            <li>Pick start/end away from water edges for cleaner paths.</li>
-            <li>Mountains and snow slow routes; grass is fastest.</li>
-            <li>Resize the window to redraw and clear selections.</li>
-          </ul>
-        </div>
       </div>
     </div>
   );
