@@ -3,15 +3,31 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-
     <title>BitMappr</title>
-
-    <link rel="stylesheet" type="text/css" href="src/style.css" />
-    <script src="libraries/p5.min.js"></script>
-    <script src="src/pathfinding.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <script>
+      tailwind.config = {
+        theme: {
+          extend: {
+            boxShadow: {
+              panel: "0 24px 80px rgba(0, 0, 0, 0.45)",
+              frame: "0 26px 90px rgba(0, 0, 0, 0.45)",
+            },
+          },
+        },
+      };
+    </script>
+    <script src="https://cdn.tailwindcss.com"></script>
   </head>
-
-  <body>
-    <script src="src/sketch.js"></script>
+  <body
+    class="m-0 min-h-screen overflow-hidden bg-[radial-gradient(circle_at_20%_20%,#142339,#0a1327_40%,#050913_80%)] text-slate-100 relative"
+  >
+    <div id="root"></div>
+    <script type="module" src="/src/main.jsx"></script>
   </body>
 </html>

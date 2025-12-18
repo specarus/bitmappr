@@ -1,10 +1,10 @@
-const TERRAIN = {
+export const TERRAIN = {
   WATER: 0,
   SAND: 1,
   GRASS: 2,
   TREES: 3,
   MOUNTAIN: 4,
-  SNOW: 5
+  SNOW: 5,
 };
 
 const movementCosts = {
@@ -12,24 +12,24 @@ const movementCosts = {
   [TERRAIN.GRASS]: 1,
   [TERRAIN.TREES]: 3,
   [TERRAIN.MOUNTAIN]: 4,
-  [TERRAIN.SNOW]: 5
+  [TERRAIN.SNOW]: 5,
 };
 
 const directions = [
   { dx: 1, dy: 0 },
   { dx: -1, dy: 0 },
   { dx: 0, dy: 1 },
-  { dx: 0, dy: -1 }
+  { dx: 0, dy: -1 },
 ];
 
-function getIndex(x, y, mapWidth) {
+export function getIndex(x, y, mapWidth) {
   return y * mapWidth + x;
 }
 
-function indexToPoint(index, mapWidth) {
+export function indexToPoint(index, mapWidth) {
   return {
     x: index % mapWidth,
-    y: Math.floor(index / mapWidth)
+    y: Math.floor(index / mapWidth),
   };
 }
 
@@ -49,7 +49,7 @@ function reconstructPath(cameFrom, currentIndex, mapWidth) {
   return path.reverse();
 }
 
-function findPath(start, goal, terrainTypeMap, mapWidth, mapHeight) {
+export function findPath(start, goal, terrainTypeMap, mapWidth, mapHeight) {
   const startIndex = getIndex(start.x, start.y, mapWidth);
   const goalIndex = getIndex(goal.x, goal.y, mapWidth);
 
