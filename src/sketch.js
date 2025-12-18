@@ -24,7 +24,7 @@ let currentPath = [];
 let zoomFactor = 100;
 
 function setup() {
-  createCanvas(700, 700);
+  createCanvas(windowWidth, windowHeight);
   waterTerrain = new TerrainType(
     0.2,
     0.36,
@@ -68,6 +68,16 @@ function setup() {
   );
 
   noLoop();
+}
+
+function windowResized() {
+  resizeCanvas(windowWidth, windowHeight);
+  terrainImage = null;
+  terrainTypeMap = [];
+  startCell = null;
+  endCell = null;
+  currentPath = [];
+  redraw();
 }
 
 function draw() {
