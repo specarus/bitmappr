@@ -79,10 +79,20 @@ export default function MapArea() {
         <MapCanvas />
       </div>
 
+      <div className="absolute z-10 bottom-7 left-7">
+        <button
+          type="button"
+          className="flex items-center gap-4 px-4 py-2 rounded-full backdrop-blur-lg bg-[rgba(7,13,26,0.65)] border border-red-400/50 text-sm font-semibold text-white shadow-sm hover:bg-[rgba(7,13,26,0.9)] transition"
+        >
+          <span aria-hidden="true" className="live-dot"></span>
+          Live
+        </button>
+      </div>
+
       <div className="absolute z-10 bottom-7 right-7 flex flex-col items-end gap-2">
         <button
           onClick={() => setShowTabs(!showTabs)}
-          className="p-2 rounded-full backdrop-blur-lg bg-[rgba(7,13,26,0.65)] shadow-md border border-white/10"
+          className="p-2 rounded-full w-fit backdrop-blur-lg bg-[rgba(7,13,26,0.65)] shadow-md border border-white/10"
         >
           {showTabs ? (
             <Eye className="w-5 h-5 text-white" />
@@ -94,7 +104,7 @@ export default function MapArea() {
         {hasDestination && (
           <button
             onClick={handleReset}
-            className="px-4 py-2 rounded-xl backdrop-blur-lg bg-[rgba(7,13,26,0.8)] border border-white/15 text-sm font-semibold text-white shadow-lg hover:bg-[rgba(7,13,26,0.9)] transition"
+            className="px-4 py-2 rounded-full backdrop-blur-lg bg-[rgba(7,13,26,0.8)] border border-white/15 text-sm font-semibold text-white shadow-lg hover:bg-[rgba(7,13,26,0.9)] transition"
           >
             Reset
           </button>
@@ -178,14 +188,6 @@ export default function MapArea() {
         <div className="pointer-events-none absolute top-6 left-1/2 -translate-x-1/2 z-30">
           <div className="pointer-events-auto px-4 py-2 rounded-full border border-emerald-300/40 bg-[rgba(7,13,26,0.65)] shadow-sm text-sm text-white backdrop-blur-lg">
             {popup.message}
-          </div>
-        </div>
-      )}
-
-      {pathDistance !== null && (
-        <div className="pointer-events-none absolute bottom-6 left-1/2 -translate-x-1/2 z-30">
-          <div className="pointer-events-auto px-4 py-2 rounded-full border border-white/15 bg-[rgba(7,13,26,0.78)] shadow-md text-sm text-white backdrop-blur-lg">
-            Distance: {pathDistance} tiles
           </div>
         </div>
       )}

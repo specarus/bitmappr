@@ -23,12 +23,7 @@ export default function Loader() {
 
   return (
     <div id="page-loader" className={classes}>
-      <div className="flex flex-col items-center gap-3">
-        <div className="h-12 w-12 rounded-full border-4 border-white/20 border-t-white animate-spin"></div>
-        <p className="text-sm font-semibold tracking-wide">
-          Preparing your map...
-        </p>
-      </div>
+      <span className="loader"></span>
     </div>
   );
 }

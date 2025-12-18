@@ -148,7 +148,9 @@ class MinHeap {
     let currentIndex = index;
     while (currentIndex > 0) {
       const parentIndex = Math.floor((currentIndex - 1) / 2);
-      if (this.items[currentIndex].priority >= this.items[parentIndex].priority) {
+      if (
+        this.items[currentIndex].priority >= this.items[parentIndex].priority
+      ) {
         break;
       }
       this.swap(currentIndex, parentIndex);
@@ -165,10 +167,16 @@ class MinHeap {
       const right = currentIndex * 2 + 2;
       let smallest = currentIndex;
 
-      if (left <= lastIndex && this.items[left].priority < this.items[smallest].priority) {
+      if (
+        left <= lastIndex &&
+        this.items[left].priority < this.items[smallest].priority
+      ) {
         smallest = left;
       }
-      if (right <= lastIndex && this.items[right].priority < this.items[smallest].priority) {
+      if (
+        right <= lastIndex &&
+        this.items[right].priority < this.items[smallest].priority
+      ) {
         smallest = right;
       }
 

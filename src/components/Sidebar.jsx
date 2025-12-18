@@ -54,7 +54,7 @@ export default function Sidebar() {
         <div className="absolute w-28 h-28 top-24 left-10 rounded-full border border-white/20 animate-ping"></div>
       </div>
 
-      <div className="relative h-full flex flex-col gap-5 p-6">
+      <div className="relative h-full flex flex-col gap-5 p-4">
         <div className="rounded-2xl border border-white/10 bg-white/5 shadow-panel backdrop-blur-lg p-5 space-y-4">
           <div className="flex items-center justify-between">
             <div>

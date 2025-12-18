@@ -526,6 +526,10 @@ export function createMapSketch(containerEl, { onReady } = {}) {
     }
 
     function drawSelectionsAndPath() {
+      // Draw the path first so markers/pins sit on top.
+      if (currentPath.length) {
+        drawSmoothPath(currentPath);
+      }
       if (startCell) {
         drawMarker(
           startCell,
@@ -534,9 +538,6 @@ export function createMapSketch(containerEl, { onReady } = {}) {
       }
       if (endCell) {
         drawPinIcon(endCell, p.color(END_COLOR.r, END_COLOR.g, END_COLOR.b));
-      }
-      if (currentPath.length) {
-        drawSmoothPath(currentPath);
       }
     }
 
