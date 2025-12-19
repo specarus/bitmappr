@@ -3,7 +3,7 @@ import MapLegend from "./MapLegend.jsx";
 
 import { useEffect, useRef, useState } from "react";
 
-import { Eye, EyeOff } from "lucide-react";
+import { Cloud, CloudOff, Eye, EyeOff } from "lucide-react";
 import { HEATMAP_FILTERS } from "../heatmap-config.js";
 
 export default function MapArea() {
@@ -13,6 +13,7 @@ export default function MapArea() {
   const [popup, setPopup] = useState(null);
   const [pathDistance, setPathDistance] = useState(null);
   const [heatmapFilters, setHeatmapFilters] = useState([]);
+  const [cloudsEnabled, setCloudsEnabled] = useState(true);
   const popupTimerRef = useRef(null);
 
   useEffect(() => {
@@ -98,7 +99,7 @@ export default function MapArea() {
       </div>
 
       <div className="w-full flex-1 p-4">
-        <MapCanvas />
+        <MapCanvas showClouds={cloudsEnabled} />
       </div>
 
       <div className="absolute z-10 bottom-7 left-7">
@@ -117,6 +118,19 @@ export default function MapArea() {
             <Eye className="w-5 h-5 text-white" />
           ) : (
             <EyeOff className="w-5 h-5 text-white" />
+          )}
+        </button>
+
+        <button
+          onClick={() => setCloudsEnabled((prev) => !prev)}
+          aria-pressed={cloudsEnabled}
+          title="Toggle clouds overlay"
+          className="p-2 rounded-full w-fit backdrop-blur-lg bg-[rgba(7,13,26,0.65)] shadow-md border border-white/10"
+        >
+          {cloudsEnabled ? (
+            <Cloud className="w-5 h-5 text-white" />
+          ) : (
+            <CloudOff className="w-5 h-5 text-white" />
           )}
         </button>
 
